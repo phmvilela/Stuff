@@ -1,0 +1,35 @@
+from langgraph.prebuilt import create_react_agent
+from langchain_openai import ChatOpenAI
+from mcp_client import TerminalServer, FileServer
+
+# 1. THE TOOLS: Initializing the MCP connections
+tools = [
+    FileServer.read_file, 
+    FileServer.write_file, 
+    TerminalServer.run_command
+]
+
+# 2. THE SKILL DEFINITION: This "sets the scene" via a System Prompt.
+# This text is what tells the LLM HOW to use the tools to achieve the goal.
+SYSTEM_PROMPT = """
+You are an Agentic Software Engineer specializing in dependency migrations.
+Your goal: Update a library and ensure the build passes.
+
+PROCEDURE:
+1. READ: Examine 'package.json' to find the current version.
+2. UPDATE: Use 'write_file' to increment the version.
+3. INSTALL: Run 'npm install' via 'run_command'.
+4. TEST: Run 'npm test'.
+5. FIX: If tests fail, READ the error log, READ the offending source code, 
+   and use 'write_file' to apply fixes for breaking changes.
+6. REPEAT: Continue until 'npm test' returns exit code 0.
+"""
+
+# 3. THE AGENT: Combining the "Brain" (LLM) + "Hands" (Tools) + "Skill" (Prompt)
+model = ChatOpenAI(model="gpt-4o")
+agent = create_react_agent(model, tools, state_modifier=SYSTEM_PROMPT)
+
+# 4. EXECUTION
+inputs = {"messages": [("user", "Update the 'lodash' library to version 4.17.21 in this repo.")]}
+for output in agent.stream(inputs):
+    print(output)
